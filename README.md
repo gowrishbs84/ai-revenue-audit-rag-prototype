@@ -10,6 +10,10 @@ The solution simulates a real-world casino revenue audit process using Python, P
 
 ---
 
+## Live Demo
+
+[Streamlit Live Application](https://ai-revenue-audit-rag-prototype-uvbsu7k4g45mwkm94wypbb.streamlit.app/)
+
 ## Business Problem
 
 Casino revenue audit teams spend significant operational effort reconciling transactional data across multiple systems.
