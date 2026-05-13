@@ -10,6 +10,15 @@ The solution simulates a real-world casino revenue audit process using Python, P
 
 ---
 
+## Author
+
+Gowrishankar Badanal Sivalingappa  
+LinkedIn: https://www.linkedin.com/in/gowrishankarbs  
+GitHub: https://github.com/gowrishbs84
+
+AI TPM | Revenue Systems | AI Automation | Gaming Operations
+
+
 ## Live Demo
 
 [Streamlit Live Application](https://ai-revenue-audit-rag-prototype-uvbsu7k4g45mwkm94wypbb.streamlit.app/)
@@ -301,8 +310,3 @@ ai-revenue-audit-rag-prototype/
 
 ---
 
-## Author
-
-Gowrishankar Sivalingappa, PMP
-
-AI TPM | Revenue Systems | AI Automation | Gaming Operations
