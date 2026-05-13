@@ -1,6 +1,3 @@
-Paste this into your `README.md`:
-
-````markdown
 # AI Revenue Audit RAG Prototype
 
 ## Overview
@@ -11,7 +8,7 @@ The prototype compares SDS Slot System eCash data against CMP eCash data by slot
 
 The solution simulates a real-world casino revenue audit process using Python, Pandas, and Streamlit.
 
----
+
 
 ## Business Problem
 
@@ -32,7 +29,7 @@ Revenue auditors must:
 
 This prototype demonstrates how AI-assisted workflows and human-in-the-loop validation can modernize the reconciliation process.
 
----
+
 
 ## Key Features
 
@@ -46,11 +43,11 @@ This prototype demonstrates how AI-assisted workflows and human-in-the-loop vali
 - Downloadable adjustment audit logs
 - AI-style audit summary generation
 
----
+
 
 ## Workflow
 
-```text
+
 Upload SDS eCash File
         ↓
 Upload CMP eCash File
@@ -72,33 +69,42 @@ Validation against SDS values
 Commit approved adjustments
         ↓
 Rerun reconciliation
-```
 
----
+## Application Screenshots
+
+### File Upload Screen
+![File Upload Screen](assets/upload-screen.png)
+
+### Variance Detection Screen
+![Variance Detection Screen](assets/variance-screen.png)
+
+### Human-in-the-Loop Adjustment Screen
+![Human-in-the-Loop Adjustment Screen](assets/adjustment-screen.png)
+
 
 ## Sample Data Format
 
 ### SDS eCash File
 
-```csv
+
 slot_location,gamingdt,ecash_in,ecash_out
 101,2026-05-01,1200,500
 102,2026-05-01,900,300
 103,2026-05-01,1500,700
 104,2026-05-01,2000,800
-```
+
 
 ### CMP eCash File
 
-```csv
+
 slot_location,gamingdt,ecash_in,ecash_out
 101,2026-05-01,1200,500
 102,2026-05-01,900,250
 103,2026-05-01,1500,700
 104,2026-05-01,1950,800
-```
 
----
+
+
 
 ## Technologies Used
 
@@ -106,23 +112,22 @@ slot_location,gamingdt,ecash_in,ecash_out
 - Streamlit
 - Pandas
 
----
+
 
 ## How to Run the Application
 
 ### Install Dependencies
 
-```bash
+
 py -m pip install -r requirements.txt
-```
+
 
 ### Run Streamlit Application
 
-```bash
-py -m streamlit run app.py
-```
 
----
+py -m streamlit run app.py
+
+
 
 ## Human-in-the-Loop Validation
 
@@ -141,7 +146,7 @@ This approach helps improve:
 - adjustment traceability
 - reconciliation efficiency
 
----
+
 
 ## AI Use Case
 
@@ -155,11 +160,11 @@ Potential future AI enhancements include:
 - vector database integration
 - enterprise reporting dashboards
 
----
+
 
 ## Repository Structure
 
-```text
+
 ai-revenue-audit-rag-prototype/
 │
 ├── app.py
@@ -176,9 +181,8 @@ ai-revenue-audit-rag-prototype/
 │
 └── architecture/
     └── workflow-diagram.png
-```
 
----
+
 
 ## Skills Demonstrated
 
@@ -193,7 +197,7 @@ ai-revenue-audit-rag-prototype/
 - Technical Project Management
 - AI Solution Architecture
 
----
+
 
 ## Future Enhancements
 
@@ -207,11 +211,10 @@ ai-revenue-audit-rag-prototype/
 - Enterprise audit dashboard
 - Cloud deployment architecture
 
----
+
 
 ## Author
 
 Gowrishankar Sivalingappa, PMP
 
 AI TPM | Revenue Systems | AI Automation | Gaming Operations
-````
