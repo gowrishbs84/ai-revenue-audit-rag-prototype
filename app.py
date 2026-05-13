@@ -1,22 +1,115 @@
-import streamlit as st
-import pandas as pd
+import os
 from datetime import datetime
+
+import pandas as pd
+import streamlit as st
+from dotenv import load_dotenv
+from openai import OpenAI
+
+
+load_dotenv()
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 st.set_page_config(page_title="eCash Audit Reconciliation", layout="wide")
 
 st.title("AI Revenue Audit RAG Prototype")
-st.subheader("SDS vs CMP eCash Reconciliation with Human-in-the-Loop Validation")
+st.subheader("SDS vs CMP eCash Reconciliation with Tool Calling + SOP RAG")
+
+required_columns = ["slot_location", "gamingdt", "ecash_in", "ecash_out"]
+
+
+def load_sop():
+    with open("knowledge_base/ecash_audit_sop.txt", "r", encoding="utf-8") as file:
+        return file.read()
+
+
+def reconcile_ecash(sds_df, cmp_df):
+    merged_df = pd.merge(
+        sds_df,
+        cmp_df,
+        on=["slot_location", "gamingdt"],
+        how="outer",
+        suffixes=("_sds", "_cmp")
+    )
+
+    value_columns = [
+        "ecash_in_sds",
+        "ecash_out_sds",
+        "ecash_in_cmp",
+        "ecash_out_cmp"
+    ]
+
+    merged_df[value_columns] = merged_df[value_columns].fillna(0)
+
+    merged_df["ecash_in_variance"] = (
+        merged_df["ecash_in_sds"] - merged_df["ecash_in_cmp"]
+    )
+
+    merged_df["ecash_out_variance"] = (
+        merged_df["ecash_out_sds"] - merged_df["ecash_out_cmp"]
+    )
+
+    merged_df["variance_status"] = merged_df.apply(
+        lambda row: "Variance Found"
+        if row["ecash_in_variance"] != 0 or row["ecash_out_variance"] != 0
+        else "Matched",
+        axis=1
+    )
+
+    return merged_df
+
+
+def generate_ai_recommendation(reconciliation_df, sop_text):
+    variance_df = reconciliation_df[
+        reconciliation_df["variance_status"] == "Variance Found"
+    ]
+
+    if variance_df.empty:
+        return "No variance found. No AI recommendation required."
+
+    variance_context = variance_df.to_string(index=False)
+
+    prompt = f"""
+You are an AI revenue audit assistant.
+
+Use the SOP guidance and reconciliation tool output below to generate an audit recommendation.
+
+Important rules:
+- Do not recalculate financial values.
+- Use only the reconciliation tool output.
+- Follow the SOP guidance.
+- Recommend human validation before adjustment.
+- Keep the response concise and audit-friendly.
+
+SOP Guidance:
+{sop_text}
+
+Reconciliation Tool Output:
+{variance_context}
+
+Generate:
+1. Summary of variance
+2. Risk level
+3. Recommended audit action
+4. Human approval requirement
+"""
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=prompt
+    )
+
+    return response.output_text
+
 
 st.write(
-    "This prototype compares SDS and CMP eCash data by slot location and gaming date, "
-    "detects variances, allows human validation, captures adjustment reasons, "
-    "validates CMP adjustments against SDS values, and simulates committing adjustments."
+    "This prototype compares SDS and CMP eCash data, detects variances using a deterministic "
+    "Python reconciliation tool, retrieves SOP guidance, and uses OpenAI to generate an audit recommendation."
 )
 
 sds_file = st.file_uploader("Upload SDS eCash CSV", type=["csv"])
 cmp_file = st.file_uploader("Upload CMP eCash CSV", type=["csv"])
-
-required_columns = ["slot_location", "gamingdt", "ecash_in", "ecash_out"]
 
 if sds_file and cmp_file:
     sds_df = pd.read_csv(sds_file)
@@ -30,88 +123,56 @@ if sds_file and cmp_file:
     elif cmp_missing:
         st.error(f"CMP file missing columns: {cmp_missing}")
     else:
-        st.subheader("Source Data")
-
         col_a, col_b = st.columns(2)
 
         with col_a:
-            st.write("SDS eCash Data")
+            st.subheader("SDS eCash Data")
             st.dataframe(sds_df)
 
         with col_b:
-            st.write("CMP eCash Data")
+            st.subheader("CMP eCash Data")
             st.dataframe(cmp_df)
 
-        merged_df = pd.merge(
-            sds_df,
-            cmp_df,
-            on=["slot_location", "gamingdt"],
-            how="outer",
-            suffixes=("_sds", "_cmp")
-        )
+        merged_df = reconcile_ecash(sds_df, cmp_df)
 
-        value_columns = [
-            "ecash_in_sds",
-            "ecash_out_sds",
-            "ecash_in_cmp",
-            "ecash_out_cmp"
+        variance_df = merged_df[
+            merged_df["variance_status"] == "Variance Found"
         ]
-
-        merged_df[value_columns] = merged_df[value_columns].fillna(0)
-
-        merged_df["ecash_in_variance"] = (
-            merged_df["ecash_in_sds"] - merged_df["ecash_in_cmp"]
-        )
-
-        merged_df["ecash_out_variance"] = (
-            merged_df["ecash_out_sds"] - merged_df["ecash_out_cmp"]
-        )
-
-        merged_df["variance_status"] = merged_df.apply(
-            lambda row: "Variance Found"
-            if row["ecash_in_variance"] != 0 or row["ecash_out_variance"] != 0
-            else "Matched",
-            axis=1
-        )
-
-        variance_df = merged_df[merged_df["variance_status"] == "Variance Found"]
 
         st.subheader("Reconciliation Summary")
 
         col1, col2, col3 = st.columns(3)
-
-        col1.metric(
-            "Total eCash In Variance",
-            f"${merged_df['ecash_in_variance'].sum():,.2f}"
-        )
-
-        col2.metric(
-            "Total eCash Out Variance",
-            f"${merged_df['ecash_out_variance'].sum():,.2f}"
-        )
-
+        col1.metric("Total eCash In Variance", f"${merged_df['ecash_in_variance'].sum():,.2f}")
+        col2.metric("Total eCash Out Variance", f"${merged_df['ecash_out_variance'].sum():,.2f}")
         col3.metric("Variance Records", len(variance_df))
 
         st.subheader("Reconciliation Report")
         st.dataframe(merged_df)
 
-        csv_report = merged_df.to_csv(index=False).encode("utf-8")
-
         st.download_button(
             label="Download Reconciliation Report",
-            data=csv_report,
+            data=merged_df.to_csv(index=False).encode("utf-8"),
             file_name="ecash_reconciliation_report.csv",
             mime="text/csv"
         )
 
         if variance_df.empty:
             st.success("Reconciliation successful. No variance found between SDS and CMP.")
-
         else:
             st.error("Variance detected. Human validation is required before adjustment.")
 
             st.subheader("Variance Details")
             st.dataframe(variance_df)
+
+            st.subheader("AI Audit Recommendation using SOP RAG")
+
+            if st.button("Generate AI Audit Recommendation"):
+                try:
+                    sop_text = load_sop()
+                    ai_response = generate_ai_recommendation(merged_df, sop_text)
+                    st.write(ai_response)
+                except Exception as e:
+                    st.error(f"AI recommendation failed: {e}")
 
             st.subheader("Human-in-the-Loop Adjustment Review")
 
@@ -120,9 +181,7 @@ if sds_file and cmp_file:
 
             for index, row in variance_df.iterrows():
                 st.markdown("---")
-                st.markdown(
-                    f"### Slot Location: {row['slot_location']} | Gaming Date: {row['gamingdt']}"
-                )
+                st.markdown(f"### Slot Location: {row['slot_location']} | Gaming Date: {row['gamingdt']}")
 
                 st.write(f"SDS eCash In: ${row['ecash_in_sds']:,.2f}")
                 st.write(f"CMP eCash In: ${row['ecash_in_cmp']:,.2f}")
@@ -178,54 +237,25 @@ if sds_file and cmp_file:
                     })
 
             if st.button("Commit Approved Adjustments and Rerun Reconciliation"):
-
                 if not adjustment_log:
-                    st.warning(
-                        "No approved adjustments found. Please approve at least one variance before committing."
-                    )
-
+                    st.warning("No approved adjustments found. Please approve at least one variance before committing.")
                 else:
-                    validation_failed = False
+                    validation_variance_df = adjusted_df[
+                        (adjusted_df["ecash_in_sds"] != adjusted_df["ecash_in_cmp"]) |
+                        (adjusted_df["ecash_out_sds"] != adjusted_df["ecash_out_cmp"])
+                    ]
 
-                    for index, row in adjusted_df.iterrows():
-                        in_match = row["ecash_in_sds"] == row["ecash_in_cmp"]
-                        out_match = row["ecash_out_sds"] == row["ecash_out_cmp"]
-
-                        if not in_match or not out_match:
-                            validation_failed = True
-
-                    if validation_failed:
-                        st.error(
-                            "Adjustment validation failed. Adjusted CMP values must match SDS values before commit."
-                        )
-
-                        validation_variance_df = adjusted_df[
-                            (adjusted_df["ecash_in_sds"] != adjusted_df["ecash_in_cmp"]) |
-                            (adjusted_df["ecash_out_sds"] != adjusted_df["ecash_out_cmp"])
-                        ]
-
+                    if not validation_variance_df.empty:
+                        st.error("Adjustment validation failed. Adjusted CMP values must match SDS values before commit.")
                         st.subheader("Remaining Variance Records")
                         st.dataframe(validation_variance_df)
-
                     else:
-                        adjusted_df["ecash_in_variance"] = (
-                            adjusted_df["ecash_in_sds"] - adjusted_df["ecash_in_cmp"]
+                        adjusted_df = reconcile_ecash(
+                            adjusted_df[["slot_location", "gamingdt", "ecash_in_sds", "ecash_out_sds"]]
+                            .rename(columns={"ecash_in_sds": "ecash_in", "ecash_out_sds": "ecash_out"}),
+                            adjusted_df[["slot_location", "gamingdt", "ecash_in_cmp", "ecash_out_cmp"]]
+                            .rename(columns={"ecash_in_cmp": "ecash_in", "ecash_out_cmp": "ecash_out"})
                         )
-
-                        adjusted_df["ecash_out_variance"] = (
-                            adjusted_df["ecash_out_sds"] - adjusted_df["ecash_out_cmp"]
-                        )
-
-                        adjusted_df["variance_status"] = adjusted_df.apply(
-                            lambda row: "Variance Found"
-                            if row["ecash_in_variance"] != 0 or row["ecash_out_variance"] != 0
-                            else "Matched",
-                            axis=1
-                        )
-
-                        rerun_variance_df = adjusted_df[
-                            adjusted_df["variance_status"] == "Variance Found"
-                        ]
 
                         adjustment_log_df = pd.DataFrame(adjustment_log)
 
@@ -234,50 +264,23 @@ if sds_file and cmp_file:
                         st.subheader("Adjustment Audit Log")
                         st.dataframe(adjustment_log_df)
 
-                        log_csv = adjustment_log_df.to_csv(index=False).encode("utf-8")
-
                         st.download_button(
                             label="Download Adjustment Audit Log",
-                            data=log_csv,
+                            data=adjustment_log_df.to_csv(index=False).encode("utf-8"),
                             file_name="cmp_adjustment_audit_log.csv",
                             mime="text/csv"
                         )
 
-                        st.subheader("Reconciliation Result After Committed Adjustments")
+                        st.subheader("Final Reconciliation Report")
                         st.dataframe(adjusted_df)
-
-                        adjusted_csv = adjusted_df.to_csv(index=False).encode("utf-8")
 
                         st.download_button(
                             label="Download Final Reconciliation Report",
-                            data=adjusted_csv,
+                            data=adjusted_df.to_csv(index=False).encode("utf-8"),
                             file_name="final_ecash_reconciliation_report.csv",
                             mime="text/csv"
                         )
 
-                        if rerun_variance_df.empty:
-                            st.success(
-                                "Reconciliation successful after committed CMP adjustments."
-                            )
-                        else:
-                            st.warning(
-                                "Variance still exists after adjustment. Further review required."
-                            )
-                            st.dataframe(rerun_variance_df)
-
-            st.subheader("AI-Style Audit Summary")
-
-            st.write(f"""
-            Variance was detected between SDS and CMP eCash values.
-
-            Total eCash In Variance: ${merged_df['ecash_in_variance'].sum():,.2f}  
-            Total eCash Out Variance: ${merged_df['ecash_out_variance'].sum():,.2f}  
-            Impacted Records: {len(variance_df)}
-
-            Human-in-the-loop validation is required before CMP adjustments are committed.
-            The audit user must download the reconciliation report, validate the variance,
-            provide an adjustment reason, approve the adjustment, and rerun reconciliation.
-            """)
-
+                        st.success("Reconciliation successful after committed CMP adjustments.")
 else:
     st.info("Please upload both SDS and CMP eCash CSV files.")

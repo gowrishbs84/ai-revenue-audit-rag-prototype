@@ -1,0 +1,21 @@
+eCash Audit SOP
+
+1. SDS and CMP eCash data must be reconciled by slot_location and gamingdt.
+
+2. If SDS and CMP values match, the record is considered reconciled.
+
+3. If eCash In or eCash Out variance is detected, the variance must be reviewed by a revenue audit user.
+
+4. The auditor must download and review the reconciliation report before approving any adjustment.
+
+5. CMP adjustments may be approved only when SDS is validated as the source of truth and the CMP variance is confirmed as a posting delay, missing update, or system synchronization issue.
+
+6. All approved adjustments must include an adjustment reason, validation status, committed user, and timestamp.
+
+7. If the adjusted CMP values do not match SDS values, the adjustment must not be committed.
+
+8. If variance remains after adjustment, the issue must be escalated to Finance Systems Support or Revenue Audit Management.
+
+9. The LLM should not calculate financial totals independently. Reconciliation calculations must be performed by the deterministic reconciliation tool.
+
+10. The LLM may provide audit recommendations only using reconciliation output and SOP guidance.
